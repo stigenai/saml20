@@ -14,6 +14,15 @@ suite, audits production dependencies, builds an `@stigenai/saml20` tarball,
 smoke-tests the packed module, and publishes its checksum and GitHub provenance.
 Pull requests run the same package checks without publishing or attesting.
 
+The privileged release job uses the `stigen-release` environment. Its server-side
+policy permits only `stigen-v*` tags, requires approval from the owner account
+`zach-source`, and disables administrator bypass. Self-review is allowed because
+the owner may also create the tag. The agent must not approve the environment on
+the owner's behalf. Before approving, verify the tag commit, source version,
+package test results, and workflow diff. This gate protects this workflow; it is
+not a substitute for restricting repository writers or protecting workflow source
+against direct edits.
+
 Before pinning Polis, download the exact release asset and verify its checksum and
 `gh attestation verify <asset.tgz> --repo stigenai/saml20`. Pin the versioned asset
 URL under the existing `@boxyhq/saml20` dependency key and commit the regenerated
