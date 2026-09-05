@@ -11,6 +11,9 @@ export interface SAMLReq {
 }
 
 export interface SAMLProfile {
+  // Present only after signature validation, from the selected signed assertion.
+  // This is not copied from AttributeStatement claims or an unsigned wrapper.
+  verifiedSubjectNameID?: { value: string; format: string };
   audience: string;
   claims: Record<string, any>;
   issuer: string;

@@ -76,6 +76,25 @@ function getProp(obj, prop?: string, extraProp?: string) {
   return getExtendedProp(obj, prop, extraProp).result;
 }
 
+// Call only after selecting the signature-validated assertion. Do not normalize
+// the value: changing whitespace can collapse distinct external identities.
+const getVerifiedSubjectNameID = (assertion): { value: string; format: string } | undefined => {
+  const subject = getAttribute(assertion, 'Subject');
+  if (!subject || Array.isArray(subject)) return undefined;
+  const nameID = getAttribute<Record<string, unknown> | undefined>(subject, 'NameID');
+  if (!nameID || typeof nameID !== 'object' || Array.isArray(nameID)) return undefined;
+  const value = nameID._;
+  const attributes = nameID['@'];
+  if (!attributes || typeof attributes !== 'object' || Array.isArray(attributes)) return undefined;
+  const format = (attributes as Record<string, unknown>).Format;
+  if (typeof value !== 'string' || value.length === 0 || typeof format !== 'string' || format.trim() === '') {
+    return undefined;
+  }
+  // A NameID is simple content. Refuse nested elements or ambiguous text.
+  if (Object.keys(nameID).some((key) => key !== '_' && key !== '@')) return undefined;
+  return { value, format };
+};
+
 const parse = (assertion) => {
   let claims = {};
   let attributes = getAttribute(assertion, 'AttributeStatement.Attribute');
@@ -289,6 +308,7 @@ const getNotOnOrAfter = (assertion): string | undefined => {
 };
 
 const saml20 = {
+  getVerifiedSubjectNameID,
   getInResponseTo,
   getSubjectConfirmationInResponseTo,
   getAssertionId,
