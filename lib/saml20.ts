@@ -1,4 +1,5 @@
-import { getAttribute } from './utils';
+import { getAttribute, parseFromString } from './utils';
+import type { Element } from '@xmldom/xmldom';
 
 const permanentNameIdentifier = 'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent';
 const nameIdentifierClaimType = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier';
@@ -75,6 +76,43 @@ function getExtendedProp(obj, prop?: string, extraProp?: string) {
 function getProp(obj, prop?: string, extraProp?: string) {
   return getExtendedProp(obj, prop, extraProp).result;
 }
+
+// Call only after selecting the signature-validated assertion. Do not normalize
+// the value: changing whitespace can collapse distinct external identities.
+const getVerifiedSubjectNameID = (verifiedXML: string): { value: string; format: string } | undefined => {
+  // The legacy profile parser strips namespace prefixes. Read ONLY the already
+  // verified/decrypted XML so a foreign-namespace element cannot masquerade as
+  // a SAML Subject/NameID. Never pass the original unsigned response here.
+  const root = parseFromString(verifiedXML)?.documentElement;
+  if (!root) return undefined;
+  const assertionNamespace = 'urn:oasis:names:tc:SAML:2.0:assertion';
+  const children = (parent: Element, name: string) =>
+    Array.from(parent.childNodes)
+      .filter((node) => node.nodeType === 1)
+      .map((node) => node as Element)
+      .filter((node) => node.namespaceURI === assertionNamespace && node.localName === name);
+  let assertions: Element[];
+  if (root.namespaceURI === assertionNamespace && root.localName === 'Assertion') {
+    assertions = [root];
+  } else if (root.namespaceURI === 'urn:oasis:names:tc:SAML:2.0:protocol' && root.localName === 'Response') {
+    assertions = children(root, 'Assertion');
+  } else return undefined;
+  if (assertions.length !== 1) return undefined;
+  const subjects = children(assertions[0], 'Subject');
+  if (subjects.length !== 1) return undefined;
+  const names = children(subjects[0], 'NameID');
+  if (names.length !== 1) return undefined;
+  const nameID = names[0];
+  const value = nameID.textContent;
+  const format = nameID.getAttribute('Format');
+  if (typeof value !== 'string' || value.length === 0 || typeof format !== 'string' || format.trim() === '') {
+    return undefined;
+  }
+  // A NameID is simple content. Refuse nested elements or ambiguous text.
+  if (Array.from(nameID.childNodes).some((node) => node.nodeType !== 3 && node.nodeType !== 4))
+    return undefined;
+  return { value, format };
+};
 
 const parse = (assertion) => {
   let claims = {};
@@ -289,6 +327,7 @@ const getNotOnOrAfter = (assertion): string | undefined => {
 };
 
 const saml20 = {
+  getVerifiedSubjectNameID,
   getInResponseTo,
   getSubjectConfirmationInResponseTo,
   getAssertionId,

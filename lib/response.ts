@@ -253,7 +253,7 @@ const validateInternal = async (rawAssertion, options, cb) => {
         }
       }
 
-      parseAttributes(assertion, tokenHandler, cb);
+      parseAttributes(assertion, tokenHandler, cb, decryptedSignedXml);
     } catch (e) {
       const error = new WrapError('An error occurred trying to validate the assertion.');
       error.inner = e;
@@ -364,9 +364,13 @@ function flattenObject(obj) {
   return obj;
 }
 
-function parseAttributes(assertion, tokenHandler, cb) {
+function parseAttributes(assertion, tokenHandler, cb, verifiedXML?: string) {
   try {
     const profile = tokenHandler.parse(assertion);
+    if (verifiedXML && tokenHandler.getVerifiedSubjectNameID) {
+      const nameID = tokenHandler.getVerifiedSubjectNameID(verifiedXML);
+      if (nameID) profile.verifiedSubjectNameID = nameID;
+    }
     cb(null, profile);
   } catch (e) {
     const error = new WrapError('An error occurred trying to parse assertion.');
