@@ -1,0 +1,90 @@
+name: Stigen package release
+
+on:
+  push:
+    tags: ['stigen-v*']
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    if: github.repository == 'stigenai/saml20'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Require release source on main
+        if: startsWith(github.ref, 'refs/tags/stigen-v')
+        run: |
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor HEAD origin/main
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run build && npm run lint && npm run check-format && npm test
+      - run: npm audit --omit=dev --audit-level=moderate
+      - name: Build owned package
+        env:
+          RELEASE_REF: ${{ github.ref_name }}
+          IS_TAG: ${{ startsWith(github.ref, 'refs/tags/stigen-v') }}
+        run: |
+          source_version="$(node -p 'require("./package.json").version')"
+          version="$source_version-stigen.0"
+          if [ "$IS_TAG" = true ]; then
+            [[ "$RELEASE_REF" =~ ^stigen-v[0-9]+\.[0-9]+\.[0-9]+-stigen\.[0-9]+$ ]] || exit 1
+            version="${RELEASE_REF#stigen-v}"
+            [ "${version%-stigen.*}" = "$source_version" ] || exit 1
+          fi
+          npm pkg set name=@stigenai/saml20 "version=$version" repository.url=git+https://github.com/stigenai/saml20.git
+          mkdir -p artifacts
+          npm pack --ignore-scripts --pack-destination artifacts
+          (cd artifacts && sha256sum ./*.tgz > SHA256SUMS)
+      - name: Smoke-test packed artifact
+        run: |
+          package_path="$(realpath artifacts/*.tgz)"
+          smoke_dir="$(mktemp -d)"
+          cd "$smoke_dir"
+          npm init -y
+          npm install --ignore-scripts "$package_path"
+          node -e 'const s = require("@stigenai/saml20").default; if (typeof s.validate !== "function") process.exit(1)'
+          npm audit --omit=dev --audit-level=moderate
+      - name: Upload tested package
+        if: startsWith(github.ref, 'refs/tags/stigen-v')
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: stigen-package
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    if: github.repository == 'stigenai/saml20' && startsWith(github.ref, 'refs/tags/stigen-v')
+    needs: package
+    runs-on: ubuntu-latest
+    environment: stigen-release
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: stigen-package
+          path: artifacts
+      - run: (cd artifacts && sha256sum --check SHA256SUMS)
+      - name: Attest package provenance
+        uses: actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661 # v3
+        with:
+          subject-path: artifacts/*.tgz
+      - name: Publish GitHub release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release create "$RELEASE_TAG" artifacts/*.tgz artifacts/SHA256SUMS --repo stigenai/saml20 --verify-tag --generate-notes

@@ -43,10 +43,10 @@ jobs:
           export NODE_OPTIONS=--max_old_space_size=4096
           npm run test
       - name: Publish NPM
-        if: github.ref == 'refs/heads/release' || contains(github.ref, 'refs/tags/beta-v')
+        if: github.repository == 'ory/saml20' && (github.ref == 'refs/heads/release' || contains(github.ref, 'refs/tags/beta-v'))
         run: |
           publishTag="latest"
-          if [[ "$GITHUB_REF" == *\/release ]]
+          if [[ "$GITHUB_REF" == */release ]]
           then
             echo "Release branch"
           else
