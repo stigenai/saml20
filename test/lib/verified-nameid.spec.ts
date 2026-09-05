@@ -110,4 +110,11 @@ describe('signature-validated Subject NameID provenance', () => {
     const profile = await validate(wrapped, opts);
     assert.deepStrictEqual(profile.verifiedSubjectNameID, { value: 'original', format: persistent });
   });
+  it('does not attest a foreign-namespace NameID', async () => {
+    const xml = fixture(
+      `<evil:NameID xmlns:evil="urn:foreign" Format="${persistent}">attacker</evil:NameID>`
+    );
+    const profile = await validate(xml, opts);
+    assert.strictEqual(profile.verifiedSubjectNameID, undefined);
+  });
 });
