@@ -5,7 +5,11 @@ upstream npm namespace. The upstream registry-publish step is disabled for this
 repository. No npm registry credentials are needed.
 
 After the owner merges the release changes, create a tag such as
-`stigen-v1.17.0-stigen.1` at the reviewed commit. The release workflow runs the full
+`stigen-v1.17.0-stigen.1` at the reviewed commit on main. The workflow rejects tags
+whose commit is not in main history or whose upstream version does not equal
+`package.json.version`. These checks do not replace repository access controls:
+restrict write access to trusted maintainers and retain owner-reviewed merges.
+The release workflow runs the full
 suite, audits production dependencies, builds an `@stigenai/saml20` tarball,
 smoke-tests the packed module, and publishes its checksum and GitHub provenance.
 Pull requests run the same package checks without publishing or attesting.

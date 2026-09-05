@@ -17,6 +17,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+          fetch-depth: 0
+      - name: Require release source on main
+        if: startsWith(github.ref, 'refs/tags/stigen-v')
+        run: |
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor HEAD origin/main
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24
@@ -29,10 +35,12 @@ jobs:
           RELEASE_REF: ${{ github.ref_name }}
           IS_TAG: ${{ startsWith(github.ref, 'refs/tags/stigen-v') }}
         run: |
-          version="$(node -p 'require("./package.json").version')-stigen.0"
+          source_version="$(node -p 'require("./package.json").version')"
+          version="$source_version-stigen.0"
           if [ "$IS_TAG" = true ]; then
             [[ "$RELEASE_REF" =~ ^stigen-v[0-9]+\.[0-9]+\.[0-9]+-stigen\.[0-9]+$ ]] || exit 1
             version="${RELEASE_REF#stigen-v}"
+            [ "${version%-stigen.*}" = "$source_version" ] || exit 1
           fi
           npm pkg set name=@stigenai/saml20 "version=$version" repository.url=git+https://github.com/stigenai/saml20.git
           mkdir -p artifacts
