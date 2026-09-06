@@ -206,7 +206,7 @@ const getSubjectConfirmationData = (assertion): Record<string, unknown>[] => {
 // limit), 'valid' when now is inside the window, and 'invalid' when a bound is
 // present but unparseable or now falls outside it.
 type WindowResult = 'valid' | 'invalid' | 'unbounded';
-const checkWindow = (notBefore?: string, notOnOrAfter?: string): WindowResult => {
+export const checkWindow = (notBefore?: string, notOnOrAfter?: string): WindowResult => {
   const now = Date.now();
 
   if (notBefore) {
