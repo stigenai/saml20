@@ -15,6 +15,7 @@ import {
   doctypeNotAllowedError,
 } from './utils';
 import { sign } from './sign';
+import { validateBrowserProfile } from './browserProfile';
 
 const nameFormatUri = [
   'urn:oid:0.9.2342.19200300.100.1.1',
@@ -201,6 +202,18 @@ const validateInternal = async (rawAssertion, options, cb) => {
     // Convert unexpected failures into a clean rejection.
     try {
       const tokenHandler = tokenHandlers[version];
+
+      if (options.expectedAcsUrl !== undefined) {
+        validateBrowserProfile(
+          decryptedSignedXml,
+          rawAssertion,
+          options.expectedAcsUrl,
+          options.inResponseTo
+        );
+        // Correlation was checked on the accepted bearer tuple, which need not
+        // be the first alternative encountered by the legacy profile parser.
+        if (options.inResponseTo) assertion.inResponseTo = options.inResponseTo;
+      }
 
       if (!options.bypassExpiration && !tokenHandler.validateExpiration(assertion)) {
         cb(new Error('Assertion is expired.'));
