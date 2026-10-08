@@ -50,6 +50,7 @@ const issuer = saml.parseIssuer(rawResponse);
 - `thumbprint` is the thumbprint of the trusted public key (uses the public key that comes in the assertion).
 - `publicKey` is the trusted public key.
 - `audience` (optional). If it is included audience validation will take place.
+- `expectedAcsUrl` (optional). Opts into browser bearer validation against this exact trusted ACS URL. The signature-selected assertion must contain one bearer confirmation whose Recipient, InResponseTo (when requested), and bounded validity window all match. Present Response Destination and InResponseTo must agree as well. Alternative confirmations are supported; unsigned envelope fields cannot replace signed confirmation fields. This bearer time check is enforced even with `bypassExpiration`. Use the ACS advertised in the AuthnRequest, including any configured override.
 - `bypassExpiration` (optional). This flag indicates expiration validation bypass (useful for testing, not recommended in production environments);
 
 You can use either `thumbprint` or `publicKey` but you should use at least one.
